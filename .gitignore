@@ -1,0 +1,22 @@
+# Database configuration files (contain sensitive credentials)
+db_conf.conf
+
+# Backup files and logs
+*.sql
+*.sql.gz
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
