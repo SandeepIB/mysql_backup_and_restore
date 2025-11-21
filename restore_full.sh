@@ -24,9 +24,11 @@ error_exit() {
 
 # Usage check
 if [ -z "$BACKUP_FILE" ]; then
-    echo "Usage: $0 <backup_file> [point_in_time]"
-    echo "Example: $0 /backup/mysql/20240101/full_backup_20240101_120000.sql.gz"
-    echo "Example: $0 /backup/mysql/20240101/full_backup_20240101_120000.sql.gz '2024-01-01 15:30:00'"
+    echo "Usage: $0 <backup_file> [point_in_time|latest]"
+    echo "Examples:"
+    echo "  $0 /backup/mysql/20240101/full_backup_20240101_120000.sql.gz"
+    echo "  $0 /backup/mysql/20240101/full_backup_20240101_120000.sql.gz '2024-01-01 15:30:00'"
+    echo "  $0 /backup/mysql/20240101/full_backup_20240101_120000.sql.gz latest"
     exit 1
 fi
 
@@ -83,7 +85,13 @@ log "Full backup restored successfully"
 
 # Point-in-time recovery
 if [ -n "$POINT_IN_TIME" ]; then
-    log "Starting point-in-time recovery to: $POINT_IN_TIME"
+    if [ "$POINT_IN_TIME" = "latest" ]; then
+        log "Starting recovery with all available binary logs (latest state)"
+        STOP_DATETIME=""
+    else
+        log "Starting point-in-time recovery to: $POINT_IN_TIME"
+        STOP_DATETIME="--stop-datetime=$POINT_IN_TIME"
+    fi
     
     # Extract binary log info
     if [[ "$BACKUP_FILE" == *.gz ]]; then
@@ -102,16 +110,20 @@ if [ -n "$POINT_IN_TIME" ]; then
         if [[ "$binlog" > "$BINLOG_DIR/$BINLOG_FILE" ]] || [[ "$binlog" == "$BINLOG_DIR/$BINLOG_FILE" ]]; then
             log "Applying: $binlog"
             if [ "$binlog" == "$BINLOG_DIR/$BINLOG_FILE" ]; then
-                mysqlbinlog --start-position="$BINLOG_POS" --stop-datetime="$POINT_IN_TIME" "$binlog" | \
+                mysqlbinlog --start-position="$BINLOG_POS" $STOP_DATETIME "$binlog" | \
                 mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD"
             else
-                mysqlbinlog --stop-datetime="$POINT_IN_TIME" "$binlog" | \
+                mysqlbinlog $STOP_DATETIME "$binlog" | \
                 mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD"
             fi
         fi
     done
     
-    log "Point-in-time recovery completed"
+    if [ "$POINT_IN_TIME" = "latest" ]; then
+        log "Recovery to latest state completed"
+    else
+        log "Point-in-time recovery completed"
+    fi
 fi
 
 log "Restore completed successfully"

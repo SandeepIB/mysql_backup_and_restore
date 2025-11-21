@@ -21,14 +21,19 @@
 ./backup_full.sh
 ```
 
-### Restore Full Backup
+### Full Restore (Complete Backup)
 ```bash
 ./restore_full.sh /backup/mysql/20240101/full_backup_20240101_120000.sql.gz
 ```
 
-### Point-in-Time Restore
+### Point-in-Time Restore (Backup + Binary Logs)
 ```bash
 ./restore_full.sh /backup/mysql/20240101/full_backup_20240101_120000.sql.gz "2024-01-01 15:30:00"
+```
+
+### Latest State Restore (Backup + All Available Binary Logs)
+```bash
+./restore_full.sh /backup/mysql/20240101/full_backup_20240101_120000.sql.gz latest
 ```
 
 ### Binary Log Management (Manual)
