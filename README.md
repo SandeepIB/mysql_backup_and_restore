@@ -1,91 +1,71 @@
-# MySQL Online Backup & Restore Solution
+# MySQL Backup & Restore - Minimal Testing Version
 
-Complete MySQL backup strategy using full backups and binary logs for point-in-time recovery without service downtime.
+## Quick Setup
 
-## Features
-
-- **Online Backups**: No MySQL service interruption
-- **Point-in-Time Recovery**: Binary log-based incremental restore
-- **Automated Scripts**: Ready-to-use shell scripts
-- **Safety Checks**: Built-in validation and error handling
-- **Configurable**: Easy configuration management
-
-## Quick Start
-
-1. **Configure Database Connection**:
+1. **Configure database**:
    ```bash
    cp db_conf.conf.example db_conf.conf
-   # Edit db_conf.conf with your MySQL credentials
+   # Edit with your MySQL credentials
    ```
 
-2. **Run Full Backup**:
+2. **Create backup directory**:
    ```bash
-   ./backup_full.sh
+   sudo mkdir -p /backup/mysql
+   sudo chmod 755 /backup/mysql
    ```
 
-3. **Setup Automated Backups**:
-   ```bash
-   ./setup_cron.sh
-   ```
+## Usage
 
-## Scripts Overview
-
-| Script | Purpose |
-|--------|---------|
-| `backup_full.sh` | Creates full MySQL backup with binlog management |
-| `restore_full.sh` | Restores full backup with point-in-time recovery |
-| `manage_binlogs.sh` | Manages binary log purging and rotation |
-| `setup_cron.sh` | Sets up automated backup scheduling |
-| `verify_backup.sh` | Validates backup integrity |
-
-## Configuration
-
-Edit `db_conf.conf`:
-```
-PORT=3307
-HOST=127.0.0.1
-USER=phpmyadmin
-PASSWORD=StrongPasswordHere!
-DB=icc_store_Sep23
-```
-
-## Usage Examples
-
-### Full Backup
+### Full Backup (Compressed)
 ```bash
 ./backup_full.sh
 ```
 
-### Restore to Specific Time
+### Restore Full Backup
 ```bash
-./restore_full.sh /backup/mysql/20240101/full_backup_20240101_120000.sql "2024-01-01 15:30:00"
+./restore_full.sh /backup/mysql/20240101/full_backup_20240101_120000.sql.gz
 ```
 
-### Manual Binlog Management
+### Point-in-Time Restore
 ```bash
-./manage_binlogs.sh purge 3  # Keep 3 days of logs
-./manage_binlogs.sh flush    # Start new binlog file
+./restore_full.sh /backup/mysql/20240101/full_backup_20240101_120000.sql.gz "2024-01-01 15:30:00"
 ```
 
-## Directory Structure
+### Binary Log Management (Manual)
+```bash
+# Show current logs
+mysql -u user -p -e "SHOW BINARY LOGS;"
 
+# Show master status
+mysql -u user -p -e "SHOW MASTER STATUS;"
+
+# Flush logs (create new binlog file)
+mysql -u user -p -e "FLUSH LOGS;"
 ```
-/backup/mysql/
-├── YYYYMMDD/
-│   ├── full_backup_YYYYMMDD_HHMMSS.sql
-│   └── backup.log
-└── logs/
-    └── backup_YYYYMMDD.log
-```
+
+## Features
+
+- ✅ **Online backups** - No MySQL downtime
+- ✅ **Compressed backups** - Direct .sql.gz creation
+- ✅ **Safe binary log purging** - Preserves logs after backup point
+- ✅ **Point-in-time recovery** - Precise recovery using binary logs
+- ✅ **Optimized restore** - Disables checks during import
+- ✅ **Error handling** - Comprehensive validation
+
+## Files
+
+- `backup_full.sh` - Main backup script with safe binlog purging
+- `restore_full.sh` - Restore with point-in-time recovery
+- `db_conf.conf` - Database configuration
+- `README.md` - This documentation
 
 ## Prerequisites
 
-- MySQL/MariaDB with binary logging enabled
+- MySQL with binary logging enabled
 - User with RELOAD, LOCK TABLES, REPLICATION CLIENT privileges
-- Sufficient disk space (recommend 2x database size)
-- Root/sudo access for cron setup
+- `/backup/mysql` directory with write permissions
 
-## Required MySQL Configuration
+## MySQL Configuration Required
 
 Add to `/etc/mysql/my.cnf`:
 ```ini
@@ -93,33 +73,11 @@ Add to `/etc/mysql/my.cnf`:
 log-bin = /var/log/mysql/mysql-bin
 server-id = 1
 binlog-format = ROW
-expire_logs_days = 7
-max_binlog_size = 100M
 ```
 
-## Safety & Best Practices
+## Safety Features
 
-- Test restore procedures regularly
-- Monitor disk space usage
-- Verify backup integrity before purging logs
-- Keep multiple backup generations
-- Document recovery procedures
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Permission Denied**: Ensure backup directory is writable
-2. **MySQL Connection Failed**: Check credentials in db_conf.conf
-3. **Insufficient Space**: Monitor disk usage before backups
-4. **Binlog Not Found**: Verify binary logging is enabled
-
-### Log Files
-
-- Backup logs: `/backup/mysql/logs/`
-- MySQL error log: `/var/log/mysql/error.log`
-- Binary logs: `/var/log/mysql/mysql-bin.*`
-
-## Support
-
-For issues or questions, check the log files and verify MySQL configuration.
+- **Safe purging**: Only removes logs before backup point
+- **Backup verification**: Validates file format before restore
+- **Session optimization**: Temporarily disables checks for faster restore
+- **Confirmation prompts**: Prevents accidental data loss
