@@ -36,16 +36,31 @@ mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" -e "SELECT 1;" > /dev/null 
 
 # Take compressed backup
 log "Creating compressed backup: $BACKUP_FILE"
-mysqldump --single-transaction \
-          --routines \
-          --triggers \
-          --master-data=2 \
-          --flush-logs \
-          --all-databases \
-          -h "$HOST" \
-          -P "$PORT" \
-          -u "$USER" \
-          -p"$PASSWORD" | gzip > "$BACKUP_FILE" || error_exit "Backup failed"
+if [ -n "$DB" ]; then
+    log "Backing up single database: $DB"
+    mysqldump --single-transaction \
+              --routines \
+              --triggers \
+              --master-data=2 \
+              --flush-logs \
+              --databases "$DB" \
+              -h "$HOST" \
+              -P "$PORT" \
+              -u "$USER" \
+              -p"$PASSWORD" | gzip > "$BACKUP_FILE" || error_exit "Backup failed"
+else
+    log "Backing up all databases"
+    mysqldump --single-transaction \
+              --routines \
+              --triggers \
+              --master-data=2 \
+              --flush-logs \
+              --all-databases \
+              -h "$HOST" \
+              -P "$PORT" \
+              -u "$USER" \
+              -p"$PASSWORD" | gzip > "$BACKUP_FILE" || error_exit "Backup failed"
+fi
 
 # Verify backup file
 if [ ! -s "$BACKUP_FILE" ]; then

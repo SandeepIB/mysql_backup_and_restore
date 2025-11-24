@@ -23,6 +23,8 @@ PORT=3307
 HOST=127.0.0.1
 USER=phpmyadmin
 PASSWORD=StrongPasswordHere!
+# DB=database_name  # Specify single database or leave empty for all databases
+DB=
 
 # Restore Database (can be different server)
 RESTORE_PORT=3306
@@ -42,14 +44,9 @@ BINLOG_DIR=/var/log/mysql
 ./backup_full.sh
 ```
 
-### Full Restore (Complete Backup)
+### Full Restore (Complete Backup Only)
 ```bash
 ./restore_full.sh /backup/mysql/20240101/full_backup_20240101_120000.sql.gz
-```
-
-### Point-in-Time Restore (Backup + Binary Logs)
-```bash
-./restore_full.sh /backup/mysql/20240101/full_backup_20240101_120000.sql.gz "2024-01-01 15:30:00"
 ```
 
 ### Latest State Restore (Backup + All Available Binary Logs)
@@ -57,25 +54,21 @@ BINLOG_DIR=/var/log/mysql
 ./restore_full.sh /backup/mysql/20240101/full_backup_20240101_120000.sql.gz latest
 ```
 
-### Binary Log Management (Manual)
-```bash
-# Show current logs
-mysql -u user -p -e "SHOW BINARY LOGS;"
+## Restore Options
 
-# Show master status
-mysql -u user -p -e "SHOW MASTER STATUS;"
-
-# Flush logs (create new binlog file)
-mysql -u user -p -e "FLUSH LOGS;"
-```
+| Mode | Command | Description |
+|------|---------|-------------|
+| **Backup Only** | `./restore_full.sh backup.sql.gz` | Restores to exact backup point |
+| **Latest State** | `./restore_full.sh backup.sql.gz latest` | Restores backup + all binary logs |
 
 ## Features
 
 - ✅ **Online backups** - No MySQL downtime
 - ✅ **Compressed backups** - Direct .sql.gz creation
 - ✅ **Safe binary log purging** - Preserves logs after backup point
-- ✅ **Point-in-time recovery** - Precise recovery using binary logs
 - ✅ **Latest state recovery** - Restore + all available binary logs
+- ✅ **Single or all database backup** - Flexible database selection
+- ✅ **Filtered binary logs** - Database-specific log filtering
 - ✅ **Separate restore credentials** - Backup and restore to different servers
 - ✅ **Configurable paths** - Custom backup and binary log directories
 - ✅ **Optimized restore** - Disables checks during import
@@ -84,7 +77,7 @@ mysql -u user -p -e "FLUSH LOGS;"
 ## Files
 
 - `backup_full.sh` - Main backup script with safe binlog purging
-- `restore_full.sh` - Restore with point-in-time recovery
+- `restore_full.sh` - Restore with latest state recovery
 - `db_conf.conf` - Database configuration
 - `README.md` - This documentation
 
@@ -94,7 +87,7 @@ mysql -u user -p -e "FLUSH LOGS;"
 - Source user with RELOAD, LOCK TABLES, REPLICATION CLIENT privileges
 - Restore user with appropriate privileges for target database
 - Configured backup directory with write permissions
-- Access to binary log directory for point-in-time recovery
+- Access to binary log directory for latest state recovery
 
 ## MySQL Configuration Required
 
@@ -108,22 +101,75 @@ binlog-format = ROW
 
 ## Use Cases
 
-### Production to Staging
-```bash
-# Backup from production (port 3307)
-# Restore to staging (port 3306)
-```
-
-### Server Migration
-```bash
-# Backup from old server
-# Restore to new server with different credentials
-```
-
 ### Disaster Recovery
 ```bash
 # Use 'latest' option for most current state
 ./restore_full.sh backup_file.sql.gz latest
+```
+
+### Single Database Backup
+```bash
+# Set DB=database_name in config
+./backup_full.sh  # Only backs up specified database
+./restore_full.sh backup_file.sql.gz latest  # Only restores that database
+```
+
+### All Databases Backup
+```bash
+# Set DB= (empty) in config
+./backup_full.sh  # Backs up all databases
+./restore_full.sh backup_file.sql.gz latest  # Restores all databases
+```
+
+### Production to Staging
+```bash
+# Backup from production, restore to staging
+./backup_full.sh
+./restore_full.sh backup_file.sql.gz latest
+```
+
+## Automated Backup Setup
+
+### Setup Weekly Full Backup with Cron
+
+1. **Edit crontab**:
+   ```bash
+   crontab -e
+   ```
+
+2. **Add weekly full backup** (every Sunday at 2 AM):
+   ```bash
+   0 2 * * 0 /path/to/backup_full.sh >> /var/log/mysql_backup.log 2>&1
+   ```
+
+3. **Create log file**:
+   ```bash
+   sudo touch /var/log/mysql_backup.log
+   sudo chmod 644 /var/log/mysql_backup.log
+   ```
+
+### Recovery Strategy
+
+- **Full backup**: Created weekly (7 days)
+- **Binary logs**: Accumulated between full backups
+- **Recovery**: Use latest restore to get most current state
+
+```bash
+# Restore latest full backup + all binary logs since backup
+./restore_full.sh /backup/mysql/20240101/full_backup_20240101_020000.sql.gz latest
+```
+
+### Backup Schedule Example
+
+```
+Sunday    -> Full Backup (backup_full.sh)
+Monday    -> Binary logs only
+Tuesday   -> Binary logs only
+Wednesday -> Binary logs only
+Thursday  -> Binary logs only
+Friday    -> Binary logs only
+Saturday  -> Binary logs only
+Sunday    -> Full Backup (backup_full.sh) + purge old logs
 ```
 
 ## Safety Features

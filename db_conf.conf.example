@@ -6,7 +6,8 @@ PORT=3307
 HOST=127.0.0.1
 USER=phpmyadmin
 PASSWORD=StrongPasswordHere!
-DB=icc_store_Sep23
+# DB=database_name  # Specify single database or leave empty for all databases
+DB=
 
 # Restore Database (can be different server/credentials)
 RESTORE_PORT=3306

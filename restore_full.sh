@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# MySQL Restore Script with Point-in-Time Recovery
-# Usage: ./restore_full.sh <backup_file> [point_in_time]
+# MySQL Restore Script with Latest State Recovery
+# Usage: ./restore_full.sh <backup_file> [latest]
 
 set -e
 
@@ -9,7 +9,7 @@ set -e
 source "$(dirname "$0")/db_conf.conf"
 
 BACKUP_FILE="$1"
-POINT_IN_TIME="$2"
+RESTORE_MODE="$2"
 
 # Logging function
 log() {
@@ -24,10 +24,9 @@ error_exit() {
 
 # Usage check
 if [ -z "$BACKUP_FILE" ]; then
-    echo "Usage: $0 <backup_file> [point_in_time|latest]"
+    echo "Usage: $0 <backup_file> [latest]"
     echo "Examples:"
     echo "  $0 /backup/mysql/20240101/full_backup_20240101_120000.sql.gz"
-    echo "  $0 /backup/mysql/20240101/full_backup_20240101_120000.sql.gz '2024-01-01 15:30:00'"
     echo "  $0 /backup/mysql/20240101/full_backup_20240101_120000.sql.gz latest"
     exit 1
 fi
@@ -83,15 +82,9 @@ COMMIT;
 
 log "Full backup restored successfully"
 
-# Point-in-time recovery
-if [ -n "$POINT_IN_TIME" ]; then
-    if [ "$POINT_IN_TIME" = "latest" ]; then
-        log "Starting recovery with all available binary logs (latest state)"
-        STOP_DATETIME=""
-    else
-        log "Starting point-in-time recovery to: $POINT_IN_TIME"
-        STOP_DATETIME="--stop-datetime=$POINT_IN_TIME"
-    fi
+# Apply all available binary logs if 'latest' specified
+if [ "$RESTORE_MODE" = "latest" ]; then
+    log "Applying all available binary logs for latest state..."
     
     # Extract binary log info
     if [[ "$BACKUP_FILE" == *.gz ]]; then
@@ -104,25 +97,31 @@ if [ -n "$POINT_IN_TIME" ]; then
     
     [ ! -d "$BINLOG_DIR" ] && error_exit "Binary log directory not found: $BINLOG_DIR"
     
-    # Apply binary logs
+    # Apply all binary logs from backup point to current
     for binlog in $(find "$BINLOG_DIR" -name "mysql-bin.*" | sort); do
         if [[ "$binlog" > "$BINLOG_DIR/$BINLOG_FILE" ]] || [[ "$binlog" == "$BINLOG_DIR/$BINLOG_FILE" ]]; then
             log "Applying: $binlog"
             if [ "$binlog" == "$BINLOG_DIR/$BINLOG_FILE" ]; then
-                mysqlbinlog --start-position="$BINLOG_POS" $STOP_DATETIME "$binlog" | \
-                mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD"
+                if [ -n "$DB" ]; then
+                    mysqlbinlog --start-position="$BINLOG_POS" --database="$DB" "$binlog" | \
+                    mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD"
+                else
+                    mysqlbinlog --start-position="$BINLOG_POS" "$binlog" | \
+                    mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD"
+                fi
             else
-                mysqlbinlog $STOP_DATETIME "$binlog" | \
-                mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD"
+                if [ -n "$DB" ]; then
+                    mysqlbinlog --database="$DB" "$binlog" | \
+                    mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD"
+                else
+                    mysqlbinlog "$binlog" | \
+                    mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD"
+                fi
             fi
         fi
     done
     
-    if [ "$POINT_IN_TIME" = "latest" ]; then
-        log "Recovery to latest state completed"
-    else
-        log "Point-in-time recovery completed"
-    fi
+    log "Latest state recovery completed"
 fi
 
 log "Restore completed successfully"
