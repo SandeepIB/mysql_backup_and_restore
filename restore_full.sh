@@ -51,13 +51,13 @@ read -p "Continue? (yes/no): " confirm
 
 # Optimize MySQL settings for restore
 log "Optimizing MySQL settings..."
-CURRENT_SETTINGS=$(mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" -e "SELECT @@sql_mode, @@foreign_key_checks, @@unique_checks, @@autocommit;" -s -N)
+CURRENT_SETTINGS=$(mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD" -e "SELECT @@sql_mode, @@foreign_key_checks, @@unique_checks, @@autocommit;" -s -N)
 SQL_MODE=$(echo "$CURRENT_SETTINGS" | cut -f1)
 FOREIGN_KEY_CHECKS=$(echo "$CURRENT_SETTINGS" | cut -f2)
 UNIQUE_CHECKS=$(echo "$CURRENT_SETTINGS" | cut -f3)
 AUTOCOMMIT=$(echo "$CURRENT_SETTINGS" | cut -f4)
 
-mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" -e "
+mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD" -e "
 SET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO';
 SET FOREIGN_KEY_CHECKS=0;
 SET UNIQUE_CHECKS=0;
@@ -65,15 +65,15 @@ SET AUTOCOMMIT=0;
 "
 
 # Restore backup
-log "Restoring backup..."
+log "Restoring backup to: $RESTORE_HOST:$RESTORE_PORT"
 if [[ "$BACKUP_FILE" == *.gz ]]; then
-    zcat "$BACKUP_FILE" | mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" || error_exit "Restore failed"
+    zcat "$BACKUP_FILE" | mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD" || error_exit "Restore failed"
 else
-    mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" < "$BACKUP_FILE" || error_exit "Restore failed"
+    mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD" < "$BACKUP_FILE" || error_exit "Restore failed"
 fi
 
 # Restore MySQL settings
-mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" -e "
+mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD" -e "
 SET SESSION sql_mode='$SQL_MODE';
 SET FOREIGN_KEY_CHECKS=$FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=$UNIQUE_CHECKS;
@@ -102,7 +102,6 @@ if [ -n "$POINT_IN_TIME" ]; then
         BINLOG_POS=$(grep "CHANGE MASTER TO" "$BACKUP_FILE" | sed -n "s/.*MASTER_LOG_POS=\([0-9]*\).*/\1/p")
     fi
     
-    BINLOG_DIR="/var/log/mysql"
     [ ! -d "$BINLOG_DIR" ] && error_exit "Binary log directory not found: $BINLOG_DIR"
     
     # Apply binary logs
@@ -111,10 +110,10 @@ if [ -n "$POINT_IN_TIME" ]; then
             log "Applying: $binlog"
             if [ "$binlog" == "$BINLOG_DIR/$BINLOG_FILE" ]; then
                 mysqlbinlog --start-position="$BINLOG_POS" $STOP_DATETIME "$binlog" | \
-                mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD"
+                mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD"
             else
                 mysqlbinlog $STOP_DATETIME "$binlog" | \
-                mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD"
+                mysql -h "$RESTORE_HOST" -P "$RESTORE_PORT" -u "$RESTORE_USER" -p"$RESTORE_PASSWORD"
             fi
         fi
     done

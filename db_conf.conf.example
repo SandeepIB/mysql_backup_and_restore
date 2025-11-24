@@ -1,12 +1,20 @@
 # MySQL Database Configuration
 # Copy this file to db_conf.conf and update with your settings
 
+# Source Database (for backup)
 PORT=3307
 HOST=127.0.0.1
 USER=phpmyadmin
 PASSWORD=StrongPasswordHere!
 DB=icc_store_Sep23
 
-# Backup Configuration (optional)
-BACKUP_RETENTION_DAYS=7
-COMPRESS_BACKUPS=true
+# Restore Database (can be different server/credentials)
+RESTORE_PORT=3306
+RESTORE_HOST=127.0.0.1
+RESTORE_USER=root
+RESTORE_PASSWORD=RestorePasswordHere!
+RESTORE_DB=icc_store_restored
+
+# Directory Configuration
+BACKUP_BASE_DIR=/backup/mysql
+BINLOG_DIR=/var/log/mysql

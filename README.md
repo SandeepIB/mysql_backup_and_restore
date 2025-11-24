@@ -5,14 +5,35 @@
 1. **Configure database**:
    ```bash
    cp db_conf.conf.example db_conf.conf
-   # Edit with your MySQL credentials
+   # Edit with your MySQL credentials and paths
    ```
 
-2. **Create backup directory**:
+2. **Create backup directory** (or use your configured path):
    ```bash
    sudo mkdir -p /backup/mysql
    sudo chmod 755 /backup/mysql
    ```
+
+## Configuration
+
+### Database Settings
+```bash
+# Source Database (for backup)
+PORT=3307
+HOST=127.0.0.1
+USER=phpmyadmin
+PASSWORD=StrongPasswordHere!
+
+# Restore Database (can be different server)
+RESTORE_PORT=3306
+RESTORE_HOST=127.0.0.1
+RESTORE_USER=root
+RESTORE_PASSWORD=RestorePasswordHere!
+
+# Directory Configuration
+BACKUP_BASE_DIR=/backup/mysql
+BINLOG_DIR=/var/log/mysql
+```
 
 ## Usage
 
@@ -54,6 +75,9 @@ mysql -u user -p -e "FLUSH LOGS;"
 - ✅ **Compressed backups** - Direct .sql.gz creation
 - ✅ **Safe binary log purging** - Preserves logs after backup point
 - ✅ **Point-in-time recovery** - Precise recovery using binary logs
+- ✅ **Latest state recovery** - Restore + all available binary logs
+- ✅ **Separate restore credentials** - Backup and restore to different servers
+- ✅ **Configurable paths** - Custom backup and binary log directories
 - ✅ **Optimized restore** - Disables checks during import
 - ✅ **Error handling** - Comprehensive validation
 
@@ -67,8 +91,10 @@ mysql -u user -p -e "FLUSH LOGS;"
 ## Prerequisites
 
 - MySQL with binary logging enabled
-- User with RELOAD, LOCK TABLES, REPLICATION CLIENT privileges
-- `/backup/mysql` directory with write permissions
+- Source user with RELOAD, LOCK TABLES, REPLICATION CLIENT privileges
+- Restore user with appropriate privileges for target database
+- Configured backup directory with write permissions
+- Access to binary log directory for point-in-time recovery
 
 ## MySQL Configuration Required
 
@@ -80,9 +106,30 @@ server-id = 1
 binlog-format = ROW
 ```
 
+## Use Cases
+
+### Production to Staging
+```bash
+# Backup from production (port 3307)
+# Restore to staging (port 3306)
+```
+
+### Server Migration
+```bash
+# Backup from old server
+# Restore to new server with different credentials
+```
+
+### Disaster Recovery
+```bash
+# Use 'latest' option for most current state
+./restore_full.sh backup_file.sql.gz latest
+```
+
 ## Safety Features
 
 - **Safe purging**: Only removes logs before backup point
 - **Backup verification**: Validates file format before restore
 - **Session optimization**: Temporarily disables checks for faster restore
 - **Confirmation prompts**: Prevents accidental data loss
+- **Separate credentials**: Isolate backup and restore operations

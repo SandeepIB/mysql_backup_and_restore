@@ -8,8 +8,8 @@ set -e
 # Load configuration
 source "$(dirname "$0")/db_conf.conf"
 
-# Configuration
-BACKUP_BASE_DIR="/backup/mysql"
+# Use configured directories
+# BACKUP_BASE_DIR and BINLOG_DIR are loaded from db_conf.conf
 DATE=$(date +%Y%m%d)
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR="$BACKUP_BASE_DIR/$DATE"
